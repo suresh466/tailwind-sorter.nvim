@@ -1,8 +1,8 @@
-local Job = require('plenary.job')
-local config = require('tailwind-sorter.config')
-local util = require('tailwind-sorter.util')
-local tsutil = require('tailwind-sorter.tsutil')
-local sorted_cache = require('tailwind-sorter.cache')
+local Job = require("plenary.job")
+local config = require("tailwind-sorter.config")
+local util = require("tailwind-sorter.util")
+local tsutil = require("tailwind-sorter.tsutil")
+local sorted_cache = require("tailwind-sorter.cache")
 
 local M = {}
 
@@ -15,19 +15,15 @@ M.on_save_enabled = false
 M.setup = function(cfg)
   M.config:apply(cfg)
 
-  M.augroup = vim.api.nvim_create_augroup('tailwind-sorter', {})
+  M.augroup = vim.api.nvim_create_augroup("tailwind-sorter", {})
 
-  vim.api.nvim_create_user_command(
-    'TailwindSort', function()
-      M.sort()
-    end, {}
-  )
+  vim.api.nvim_create_user_command("TailwindSort", function()
+    M.sort()
+  end, {})
 
-  vim.api.nvim_create_user_command(
-    'TailwindSortOnSaveToggle', function()
-      M.toggle_on_save()
-    end, {}
-  )
+  vim.api.nvim_create_user_command("TailwindSortOnSaveToggle", function()
+    M.toggle_on_save()
+  end, {})
 
   if M.config:get().on_save_enabled then
     M.toggle_on_save()
@@ -66,15 +62,13 @@ M.sort = function(buf, extra_cfg)
   local plugin_path = util.plugin_path()
   local node_path = cfg:get().node_path
 
-  local job = Job:new(
-    {
-      command = node_path,
-      args = {
-        plugin_path .. '/formatter/dist/index.js',
-        vim.json.encode(texts),
-      },
-    }
-  )
+  local job = Job:new({
+    command = node_path,
+    args = {
+      plugin_path .. "/formatter/dist/index.js",
+      vim.json.encode(texts),
+    },
+  })
 
   local result = job:sync()
 
@@ -82,25 +76,59 @@ M.sort = function(buf, extra_cfg)
 
   if #error > 0 then
     vim.notify(
-      '[tailwind-sorter.nvim]: Error during class sorting: ' ..
-      table.concat(error, ', ') .. '.', vim.log.levels.ERROR
+      "[tailwind-sorter.nvim]: Error during class sorting: " .. table.concat(error, ", ") .. ".",
+      vim.log.levels.ERROR
     )
     return
   end
 
   if #result ~= 1 then
     vim.notify(
-      '[tailwind-sorter.nvim]: Unfortunately, no output has been received from the class sorting process.',
+      "[tailwind-sorter.nvim]: Unfortunately, no output has been received from the class sorting process.",
       vim.log.levels.ERROR
     )
   end
 
   local out = vim.json.decode(result[1])
 
+  -- -- Optionally trim extra spaces
+  -- if cfg:get().trim_spaces then
+  --   for i, class_string in ipairs(out) do
+  --     -- Step 1: Replace spaces around template literals with markers
+  --     local marked = class_string
+  --     -- Mark space after } (if it's not at the end)
+  --     marked = marked:gsub("(})(%S)", "}__SPACE__%1")
+  --     -- Mark space before ${ (if it's not at the beginning)
+  --     marked = marked:gsub("(%S)(%${)", "%1__SPACE__%2")
+  --
+  --     -- Step 2: Normalize all spaces (trim and collapse multiple spaces)
+  --     marked = marked:gsub("^%s*(.-)%s*$", "%1"):gsub("%s+", " ")
+  --
+  --     -- Step 3: Restore markers with spaces
+  --     out[i] = marked:gsub("__SPACE__", " ")
+  --   end
+  -- end
+
+  -- -- Optionally trim extra spaces
+  -- if cfg:get().trim_spaces then
+  --   for i, class_string in ipairs(out) do
+  --     -- Trim leading and trailing spaces
+  --     local trimmed = class_string:gsub("^%s*(.-)%s*$", "%1")
+  --     -- Replace consecutive spaces with a single space
+  --     out[i] = trimmed:gsub("%s%s+", " ")
+  --   end
+  -- end
+
   -- Optionally trim extra spaces
   if cfg:get().trim_spaces then
     for i, class_string in ipairs(out) do
-      out[i] = class_string:gsub("^%s*(.-)%s*$", "%1"):gsub("%s+", " ")
+      -- Skip trimming for strings that contain template literals
+      if not class_string:find("%${") then
+        -- Trim leading and trailing spaces
+        local trimmed = class_string:gsub("^%s*(.-)%s*$", "%1")
+        -- Replace consecutive spaces with a single space
+        out[i] = trimmed:gsub("%s+", " ")
+      end
     end
   end
 
@@ -119,10 +147,7 @@ M.toggle_on_save = function(extra_cfg)
   end
 
   if M.augroup == nil then
-    vim.notify(
-      '[tailwind-sorter.nvim]: The plugin is not setup yet, please call .setup() first.',
-      vim.log.levels.ERROR
-    )
+    vim.notify("[tailwind-sorter.nvim]: The plugin is not setup yet, please call .setup() first.", vim.log.levels.ERROR)
   end
 
   if M.on_save_enabled then
@@ -130,13 +155,11 @@ M.toggle_on_save = function(extra_cfg)
 
     M.on_save_enabled = false
   else
-    vim.api.nvim_create_autocmd(
-      'BufWritePre', {
+    vim.api.nvim_create_autocmd("BufWritePre", {
       pattern = cfg:get().on_save_pattern,
       group = M.augroup,
-      command = 'TailwindSort',
-    }
-    )
+      command = "TailwindSort",
+    })
 
     M.on_save_enabled = true
   end
